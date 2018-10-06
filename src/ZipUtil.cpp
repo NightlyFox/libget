@@ -13,11 +13,16 @@
 #define u32 uint32_t
 #define u8 uint8_t
 
+#define ONE_MB (1000000)
+#define EIGHT_MB (8000000) 
+
 using namespace std;
 
 Zip::Zip(const char * zipPath) {
-	fileToZip = zipOpen(zipPath,APPEND_STATUS_CREATE);
-	if(fileToZip == NULL) printf("Error Opening: %s for zipping files!\n",zipPath);
+	//fileToZip = zipOpen(zipPath,APPEND_STATUS_CREATE);
+	//if(fileToZip == NULL) printf("Error Opening: %s for zipping files!\n",zipPath);
+	//memset(&fileToUnzip, 0, sizeof(fileToUnzip));
+	//fileStatus = mz_zip_writer_init(fileToUnzip, );
 }
 
 Zip::~Zip() {
@@ -25,10 +30,10 @@ Zip::~Zip() {
 }
 
 int Zip::AddFile(const char * internalPath, const char * path) {
-	zipOpenNewFileInZip(fileToZip, internalPath, NULL, NULL, 0, NULL, 0, NULL, Z_DEFLATED, Z_DEFAULT_COMPRESSION);
+	//zipOpenNewFileInZip(fileToZip, internalPath, NULL, NULL, 0, NULL, 0, NULL, Z_DEFLATED, Z_DEFAULT_COMPRESSION);
 	printf("Adding %s to zip, under path %s\n",path,internalPath);
 	int code = Add(path);
-	zipCloseFileInZip(fileToZip);
+	//zipCloseFileInZip(fileToZip);
 	return code;
 }
 
@@ -71,12 +76,10 @@ int Zip::Add(const char * path) {
 	u32 filesize = lseek(fileNumber, 0, SEEK_END);
 	lseek(fileNumber, 0, SEEK_SET);
 	
-	u32 blocksize = 0x8000;
-	u8 * buffer = (u8*)malloc(blocksize);
-	if (buffer == NULL)
-		return -2;
-		
+	size_t blocksize = 1024000;
+	char buffer[blocksize];
 	u32 done = 0;
+	
 	int readBytes = 0;
 
 	while(done < filesize)
@@ -87,11 +90,10 @@ int Zip::Add(const char * path) {
 		readBytes = read(fileNumber, buffer, blocksize);
 		if(readBytes <= 0)
 			break;
-		zipWriteInFileInZip(fileToZip,buffer,blocksize);
+		//zipWriteInFileInZip(fileToZip,buffer,blocksize);
 		done += readBytes;
 	}
 	close(fileNumber);
-	free(buffer);
 
 	if (done != filesize)
 	{
@@ -101,12 +103,13 @@ int Zip::Add(const char * path) {
 }
 
 void Zip::Close() {
-	zipClose(fileToZip,NULL);
+	//zipClose(fileToZip,NULL);
 }
 
 
 UnZip::UnZip(const char * zipPath) {
-	fileToUnzip = unzOpen(zipPath);
+	memset(&fileToUnzip, 0, sizeof(fileToUnzip));
+	fileStatus = mz_zip_reader_init_file(&fileToUnzip, zipPath, 0);
 }
 
 UnZip::~UnZip() {
@@ -114,26 +117,31 @@ UnZip::~UnZip() {
 }
  
 void UnZip::Close() {
-	unzClose(fileToUnzip);
+	mz_zip_reader_end(&fileToUnzip);
 }
 
-int UnZip::ExtractFile(const char * internalPath,const char * path) {
-	int code = unzLocateFile(fileToUnzip,internalPath,0);
-	if(code == UNZ_END_OF_LIST_OF_FILE) 
-		return -1;
+int UnZip::ExtractFile(const char * internalPath, const char * path) {
+	if(!fileStatus) return -1;
 	
-	unz_file_info_s * fileInfo = GetFileInfo();
+	mz_uint fileIndex = mz_zip_reader_locate_file(&fileToUnzip, internalPath, nullptr, 0);
+	if(fileIndex < 0 ) return -2;
+
+	mz_zip_archive_file_stat fileInfo;
+
+	if (!GetFileInfo(&fileInfo, fileIndex))
+		return -3;
 	
 	std::string fullPath(path);
 	printf("Extracting file %s to: %s\n",internalPath,fullPath.c_str());
-	code = Extract(fullPath.c_str(),fileInfo);
-	free(fileInfo);
-	return code;
+	if(Extract(path,&fileInfo) < 0 )
+		return -1;
+	return 0;
+	
 }
 
 int UnZip::ExtractDir(const char * internalDir,const char * externalDir) {
 	int i = 0;
-	for(;;) {
+	/*for(;;) {
 		int code;
 		if(i == 0) {
 			code = unzGoToFirstFile(fileToUnzip);
@@ -148,11 +156,16 @@ int UnZip::ExtractDir(const char * internalDir,const char * externalDir) {
 				return -1;
 			}
 		}
-		unz_file_info_s * fileInfo = GetFileInfo();
+		unz_file_info_s fileInfo[1];
+	
+		if(!GetFileInfo(fileInfo)) return -1;//Error
 		
-		std::string outputPath = GetFullFileName(fileInfo);
+		char filename[fileInfo->size_filename+1];
+		if(!GetFullFileName(fileInfo, filename)) return -2;//Error
+		filename[fileInfo->size_filename]='\0';
+
+		string outputPath(filename);
 		if(outputPath.find(internalDir,0) != 0) {
-			free(fileInfo);
 			continue;
 		}
 		
@@ -160,101 +173,91 @@ int UnZip::ExtractDir(const char * internalDir,const char * externalDir) {
 		if(fileInfo->uncompressed_size != 0 && fileInfo->compression_method != 0) {
 			//file
 			i++;
-			printf("Extracting %s to: %s\n",GetFullFileName(fileInfo).c_str(),outputPath.c_str());
+			//printf("Extracting %s to: %s\n",GetFullFileName(fileInfo).c_str(),outputPath.c_str());
 			Extract(outputPath.c_str(),fileInfo);
 		}
-		free(fileInfo);
-	}
+		
+	}*/
 }
 
 int UnZip::ExtractAll(const char * dirToExtract) {
 	int i = 0;
-	for(;;) {
+	/*ifor(;;) {
 		int code;
-		if(i == 0) {
+		f(i == 0) {
 			code = unzGoToFirstFile(fileToUnzip);
 			i++;
 		} else {
 			code = unzGoToNextFile(fileToUnzip);
 		}
 		if(code == UNZ_END_OF_LIST_OF_FILE) return 0;
-		
-		unz_file_info_s * fileInfo = GetFileInfo();
+
+		unz_file_info_s fileInfo[1];
+	
+		if(!GetFileInfo(fileInfo)) return -1;//Error
+
 		std::string fileName(dirToExtract);
 		fileName += '/';
-		fileName += GetFullFileName(fileInfo);
+		char fn[fileInfo->size_filename+1];
+		if(!GetFullFileName(fileInfo, fn)) return -2;//Error
+		fn[fileInfo->size_filename] = '\0';
+		fileName += fn;
 		if(fileInfo->uncompressed_size != 0 && fileInfo->compression_method != 0) {
 			//file
-			printf("Extracting %s to: %s\n",GetFullFileName(fileInfo).c_str(),fileName.c_str());
+			//printf("Extracting %s to: %s\n",GetFullFileName(fileInfo).c_str(),fileName.c_str());
 			Extract(fileName.c_str(),fileInfo);
 		}
-		free(fileInfo);
-	}
+	}*/
 }
 
-int UnZip::Extract(const char * path, unz_file_info_s * fileInfo) {
+int UnZip::Extract(const char * path, const mz_zip_archive_file_stat* fileInfo) {
 	//check to make sure filepath or fileInfo isnt null
 	if(path == NULL || fileInfo == NULL)
 		return -1;
-		
-	if(unzOpenCurrentFile(fileToUnzip) != UNZ_OK)
-		return -2;
 	
 	char folderPath[strlen(path)+1];
+	
 	strcpy(folderPath,path);
 	char * pos = strrchr(folderPath,'/');
 
 	if(pos != NULL) {
 		*pos = '\0';
 		CreateSubfolder(folderPath);
+		//printf("Creating Subfolder %s\n", folderPath);
 	}
-	
 
-	
-	u32 blocksize = 0x8000;
-	u8 * buffer = (u8*)malloc(blocksize);
-	if(buffer == NULL)
-		return -3;
-	u32 done = 0;
-	int writeBytes = 0;
-
-	
 	FILE* fp = fopen(path, "w");
 
 	if(fp == NULL) {
-		free(buffer);
 		return -4;		
 	}
-		
-	while(done < fileInfo->uncompressed_size)
-	{
-		if(done + blocksize > fileInfo->uncompressed_size) {
-			blocksize = fileInfo->uncompressed_size - done;
-		}
-		unzReadCurrentFile(fileToUnzip, buffer, blocksize);
-		writeBytes = write(fileno(fp), buffer, blocksize);
-		if(writeBytes <= 0) {
-			break;
-		}
-		done += writeBytes;
+
+	u32 uncompressed_size =  (u32) fileInfo->m_uncomp_size;
+	
+	if(uncompressed_size < ONE_MB){
+		char buffer[uncompressed_size];
+		char file[uncompressed_size];
+		if(!mz_zip_reader_extract_to_mem_no_alloc(&fileToUnzip, fileInfo->m_file_index, &file, uncompressed_size, 0, &buffer, uncompressed_size))
+			return -1;
+		if(fwrite(&file, 1, uncompressed_size, fp) != uncompressed_size) 
+			return -1;
+	}
+	else {
+		if(!mz_zip_reader_extract_to_file(&fileToUnzip, fileInfo->m_file_index, path, 0))
+			return -1;
 	}
 	
 	fflush(fp);
 	fclose(fp);
 	
-	free(buffer);
-
-	if (done != fileInfo->uncompressed_size)
-		return -4;		
-	
-	unzCloseCurrentFile(fileToUnzip);
 	return 0;
 }
 
-std::string UnZip::GetFileName(unz_file_info_s * fileInfo) {
-	char fileName[fileInfo->size_filename+1];
+std::string UnZip::GetFileName(mz_zip_archive_file_stat* fileInfo) {
+	char fileName[MZ_ZIP_MAX_ARCHIVE_FILENAME_SIZE+1];
 	std::string path;
-	strcpy(fileName,GetFullFileName(fileInfo).c_str());
+	if(!GetFullFileName(fileInfo, fileName)) return string();
+	fileName[MZ_ZIP_MAX_ARCHIVE_FILENAME_SIZE] = '\0';
 	char * pos = strrchr(fileName, '/');
 	if (pos != NULL) {
 		pos++;
@@ -265,17 +268,13 @@ std::string UnZip::GetFileName(unz_file_info_s * fileInfo) {
 	return path;
 }
 
-std::string UnZip::GetFullFileName(unz_file_info_s * fileInfo) {
-	char filePath[fileInfo->size_filename+1];
-	unzGetCurrentFileInfo(fileToUnzip,fileInfo,filePath,fileInfo->size_filename,NULL,0,NULL,0);
-	filePath[fileInfo->size_filename] = '\0';
-	std::string path(filePath);
-	path.resize(fileInfo->size_filename);
-	return path;
+bool UnZip::GetFullFileName(mz_zip_archive_file_stat* fileInfo, char* filename) {
+	if(filename==nullptr) return false;
+	strncpy(filename, fileInfo->m_filename, MZ_ZIP_MAX_ARCHIVE_FILENAME_SIZE-1);
+	return true;
 }
 
-unz_file_info_s * UnZip::GetFileInfo() {
-	unz_file_info_s * fileInfo = (unz_file_info_s*)malloc(sizeof(unz_file_info_s));
-	unzGetCurrentFileInfo(fileToUnzip,fileInfo,NULL,0,NULL,0,NULL,0);
-	return fileInfo;
+bool UnZip::GetFileInfo(mz_zip_archive_file_stat* fileInfo, const mz_uint& fileIndex) {
+	if(fileInfo == nullptr) return false;
+	return mz_zip_reader_file_stat(&fileToUnzip, fileIndex, fileInfo);
 }

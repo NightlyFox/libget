@@ -3,7 +3,6 @@
 #include <string>
 #include "rapidjson/rapidjson.h"
 #include "rapidjson/document.h"
-
 #if defined (SWITCH)
 #define ROOT_PATH "/"
 #elif defined (__WIIU__)

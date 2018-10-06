@@ -89,10 +89,14 @@ bool Package::install(const char* pkg_path, const char* tmp_path)
 
 		while(std::getline(ManifestFile, CurrentLine))
 		{
-			char Mode = CurrentLine.at(0);
-			std::string Path = CurrentLine.substr(3);
+			char Mode = 'N';
+			if(CurrentLine.size()>0)
+				Mode = CurrentLine.at(0);
+			std::string Path;
+			if(CurrentLine.size()>3)
+				Path = CurrentLine.substr(3);
+			else Path = std::string();
 			std::string ExtractPath = ROOT_PATH + Path;
-
 			int resp = 0;
 			switch(Mode)
 			{
@@ -114,7 +118,7 @@ bool Package::install(const char* pkg_path, const char* tmp_path)
 						printf("File already exists, skipping...");
 					break;
 				default:
-					printf("%s : NOP\n", Path.c_str());
+						printf("%s : NOP\n", Path.c_str());
 					break;
 			}
 

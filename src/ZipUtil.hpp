@@ -1,8 +1,12 @@
 #pragma once
 	
 // use included minizip library
-#include "zip.h"
-#include "unzip.h"
+//#include "zip.h"
+//#include "unzip.h"
+#define MINIZ_NO_MALLOC
+#define MINIZ_NO_TIME
+#define MINIZ_HEADER_FILE_ONLY
+#include "miniz.c"
 
 #include <string>
 
@@ -15,7 +19,8 @@ class Zip {
 		int AddDir(const char * internalDir,const char * externalDir);
 	private:
 		int Add(const char * path);
-		zipFile fileToZip;
+		mz_zip_archive fileToZip;
+		mz_bool fileStatus;
 };
 class UnZip {
 	public:		
@@ -26,10 +31,11 @@ class UnZip {
 		int ExtractAll(const char * dirToExtract);
 		int ExtractDir(const char * internalDir,const char * externalDir);
 	private:
-		int Extract(const char * path, unz_file_info_s * fileInfo);
-		std::string GetFileName(unz_file_info_s * fileInfo);
-		std::string GetFullFileName(unz_file_info_s * fileInfo);
-		unz_file_info_s * GetFileInfo();
-		unzFile fileToUnzip;
+		int Extract(const char * path, const mz_zip_archive_file_stat* fileInfo);
+		std::string GetFileName(mz_zip_archive_file_stat* fileInfo);
+		bool GetFullFileName(mz_zip_archive_file_stat* fileInfo, char* filename);
+		bool GetFileInfo(mz_zip_archive_file_stat* fileInfo, const mz_uint& fileIndex);
+		mz_zip_archive fileToUnzip;
+		mz_bool fileStatus;
 };
 

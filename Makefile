@@ -1,6 +1,6 @@
 RAPIDJSON 	:=	src/libs/rapidjson/include
-MINIZIP		:=	src/libs/minizip
-MINIZIP_O :=  zip.o ioapi.o unzip.o
+MINIZIP		:=	src/libs/miniz
+MINIZIP_O :=  miniz.o
 
 build:
 	gcc -c $(MINIZIP)/*.c
