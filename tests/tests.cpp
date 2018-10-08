@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <sys/stat.h>
 #include <vector>
+#include <chrono>
 #include "../src/Get.hpp"
 #include "../src/Utils.hpp"
 
@@ -61,6 +62,7 @@ int main()
 //    get->toggleRepo(get->repos[0]);
 
     // make sure there are 3 installed packages
+    auto start = std::chrono::high_resolution_clock::now();
     if (packages.size() != 3)
     {
         cout << "There should be 3 packages enabled, found " << packages.size() << endl;
@@ -135,7 +137,12 @@ int main()
       return 6;
     }
 
+    auto finished = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> elapsed = finished - start;
+
     // tests passed!
     cout << "**================================++TESTS PASSED++===============================**" << endl;
+    cout<< "Elapsed Time:"<< elapsed.count() << " (ms)"<<endl;
     return 0;
 }

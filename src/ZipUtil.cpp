@@ -243,10 +243,29 @@ int UnZip::Extract(const char * path, const mz_zip_archive_file_stat* fileInfo) 
 			return -1;
 	}
 	else {
-		if(!mz_zip_reader_extract_to_file(&fileToUnzip, fileInfo->m_file_index, path, 0))
-			return -1;
+		size_t blocksize = ONE_MB;
+		char buffer[blocksize];
+		size_t pSize = ONE_MB/4;
+		char passBuffer[pSize];
+		u32 done = 0;
+		int writeBytes = 0;
+		while(done < fileInfo->m_uncomp_size)
+		{
+			if(done + blocksize > fileInfo->m_uncomp_size) {
+				blocksize = fileInfo->m_uncomp_size - done;
+			}
+			if(!mz_zip_reader_extract_to_mem_no_alloc(&fileToUnzip, fileInfo->m_file_index, &buffer, blocksize, 0, &passBuffer, pSize))
+				return -1;
+			writeBytes = fwrite(&buffer, 1, uncompressed_size, fp);
+			done += writeBytes;
+			if(done <= 0) {
+				break;
+			}
+		}
+		if (done != fileInfo->m_uncomp_size)
+			return -4;
 	}
-	
+
 	fflush(fp);
 	fclose(fp);
 	
