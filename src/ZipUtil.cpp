@@ -234,15 +234,15 @@ int UnZip::Extract(const char * path, const mz_zip_archive_file_stat* fileInfo) 
 
 	u32 uncompressed_size =  (u32) fileInfo->m_uncomp_size;
 	
-	if(uncompressed_size < ONE_MB){
+	/*if(uncompressed_size < ONE_MB){
 		char buffer[uncompressed_size];
 		char file[uncompressed_size];
 		if(!mz_zip_reader_extract_to_mem_no_alloc(&fileToUnzip, fileInfo->m_file_index, &file, uncompressed_size, 0, &buffer, uncompressed_size))
 			return -1;
-		if(fwrite(&file, 1, uncompressed_size, fp) != uncompressed_size) 
+		if(write(fileno(fp), &file, uncompressed_size) != uncompressed_size)
 			return -1;
-	}
-	else {
+	}*/
+	//else {
 		size_t blocksize = ONE_MB;
 		char buffer[blocksize];
 		size_t pSize = ONE_MB/4;
@@ -264,7 +264,7 @@ int UnZip::Extract(const char * path, const mz_zip_archive_file_stat* fileInfo) 
 		}
 		if (done != fileInfo->m_uncomp_size)
 			return -4;
-	}
+	//}
 
 	fflush(fp);
 	fclose(fp);
